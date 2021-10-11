@@ -11,7 +11,7 @@ def dominant(graph) -> list:
         :param graph: le graphe est donné dans le format networkx : https://networkx.github.io/documentation/stable/reference/classes/graph.html
 
     """
-    return list(graph.nodes)
+    return list(nx.dominating_set(graph))
 
 #########################################
 #### Ne pas modifier le code suivant ####
