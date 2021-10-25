@@ -69,7 +69,9 @@ def test_reduce_graph() -> None:
     graph.add_edge(26, 52)
     graph.add_edge(26, 53)
     graph.add_edge(52, 53)
-    assert reduce_graph(graph) == ({0, 50, 51, 52, 53}, {9, 26, 54}), f"Result should be ({{0, 50, 51, 52, 53}}, {{9, 26}}) but is {reduce_graph(graph)}"
+
+    nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(graph)
+    assert (nodes_to_remove, dominating_nodes) == ({0, 50, 51, 52, 53}, {9, 26, 54}), f"Result should be ({{0, 50, 51, 52, 53}}, {{9, 26, 54}}) but is {reduce_graph(graph)}"
 
 
 def test_is_node_linked_to_dominating_nodes() -> None:
@@ -99,11 +101,9 @@ def test_construct_dominating_set() -> None:
     graph.add_edge(26, 53)
     graph.add_edge(52, 53)
 
-    nodes_to_remove, dominating_nodes = reduce_graph(graph)
-    reduced_graph = graph.copy()
-    for node_to_remove in nodes_to_remove:
-        reduced_graph.remove_node(node_to_remove)
+    nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(graph)
 
+    nodes_weight_dict = dict(graph.nodes(data=True))
     dominating_set = construct_dominating_set(reduced_graph, dominating_nodes)
     assert nx.is_dominating_set(graph, dominating_set), f"Set {dominating_set} is not a dominating set"
 

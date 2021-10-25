@@ -1,8 +1,8 @@
 import networkx as nx
 from pathlib import Path
 
-from submission.dominant import load_graph, dominant, get_highest_weight_node, get_randomly_lists_fusion, \
-    get_dominating_nodes_number_dict, get_full_node_dict, swap_dominating_set_nodes_if_necessary, dominant
+from submission.dominant import load_graph, dominant, get_highest_weight_node, dominant, timeit
+    # get_randomly_lists_fusion, get_dominating_nodes_number_dict, get_full_node_dict, swap_dominating_set_nodes_if_necessary,
 import random
 import matplotlib.pyplot as plt
 import math
@@ -90,10 +90,14 @@ def test_plot_random_graph(
     plot_graph_with_dominating_set(input_dir, graph_filename, dominating_set)
 
 
+@timeit
 def compute_graph_dominant_set_score(
-        graph: nx.Graph,
-        dominant_set: [int],
+        input_dir: Path,
+        graph_filename: str,
 ) -> int:
+    graph = load_graph(input_dir / graph_filename)
+    print("`\nGraph : ", graph_filename)
+    dominant_set = dominant(graph)
     score = sum(
         [
             weight_dict["weight"]
@@ -104,18 +108,14 @@ def compute_graph_dominant_set_score(
     return score
 
 
+@timeit
 def compute_global_score(
         input_dir: Path,
         graph_filenames_list: list,
 ) -> int:
     total_score = 0
     for graph_filename in graph_filenames_list:
-        graph = load_graph(input_dir / graph_filename)
-        dominant_set = dominant(graph)
-        total_score += compute_graph_dominant_set_score(
-            graph,
-            dominant_set,
-        )
+        total_score += compute_graph_dominant_set_score(input_dir, graph_filename)
     print(f"Total score for the {len(graph_filenames_list)} graphs : {total_score}.")
     return total_score
 
@@ -142,10 +142,10 @@ def test_get_highest_weight_node(
     return highest_weight_node
 
 
-def test_get_random_list_fusion():
-    L1 = [1, 2, 3, 4, 5, 6]
-    L2 = [6, 5, 4, 3, 2, 1]
-    return get_randomly_lists_fusion(L1, L2)
+# def test_get_random_list_fusion():
+#     L1 = [1, 2, 3, 4, 5, 6]
+#     L2 = [6, 5, 4, 3, 2, 1]
+#     return get_randomly_lists_fusion(L1, L2)
 
 
 def test_get_dominating_nodes_number():
@@ -167,6 +167,7 @@ def test_swap_dominating_set_nodes_if_necessary():
     plot_graph_with_dominating_set(INPUT_DIR, GRAPH_FILENAME)
     return dominating_set
 
+
 # -----
 # DEBUG
 
@@ -175,9 +176,9 @@ def test_swap_dominating_set_nodes_if_necessary():
 # get_node_neighbors(INPUT_DIR, GRAPH_FILENAME, 6)
 # test_dominant(INPUT_DIR, GRAPH_FILENAME)
 # compute_graph_dominant_set_score(INPUT_DIR, GRAPH_FILENAME)
+# compute_graph_dominant_set_score(INPUT_DIR, "graph_500_1000")
 # compute_graph_dominant_set_score(INPUT_DIR, random.choice(GRAPH_FILENAMES_LIST))
 # compute_global_score(INPUT_DIR, GRAPH_FILENAMES_LIST)
 # test_plot(INPUT_DIR, GRAPH_FILENAME)
 # test_plot_random_graph(INPUT_DIR, GRAPH_FILENAMES_LIST)
 # test_get_highest_weight_node(INPUT_DIR, GRAPH_FILENAME)
-# test_get_dominating_nodes_number()
