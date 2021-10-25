@@ -37,7 +37,8 @@ def test_weighted_degree_0_rule() -> None:
 
 def test_weighted_degree_1_rule_1() -> None:
     graph = load_graph(INPUT_DIR / GRAPH_FILENAME)
-    assert weighted_degree_1_rule_1(graph) == ({9}, {0})  # use plot_graph() to check visually
+    nodes_weight_dict = dict(graph.nodes(data=True))
+    assert weighted_degree_1_rule_1(graph, nodes_weight_dict) == ({9}, {0})  # use plot_graph() to check visually
 
 
 def test_weighted_degree_1_rule_2() -> None:
@@ -46,7 +47,8 @@ def test_weighted_degree_1_rule_2() -> None:
     graph.add_node(51, weight=5)
     graph.add_edge(50, 9)
     graph.add_edge(51, 9)
-    assert weighted_degree_1_rule_2(graph) == ({9}, {0, 50, 51}), f"Should be ({{9}}, {{0, 50, 51}}) but is {weighted_degree_1_rule_2(graph)}"
+    nodes_weight_dict = dict(graph.nodes(data=True))
+    assert weighted_degree_1_rule_2(graph, nodes_weight_dict) == ({9}, {0, 50, 51}), f"Should be ({{9}}, {{0, 50, 51}}) but is {weighted_degree_1_rule_2(graph)}"
 
 
 def test_weighted_degree_2_rule() -> None:
@@ -54,7 +56,8 @@ def test_weighted_degree_2_rule() -> None:
     graph.add_node(50, weight=40)
     graph.add_edge(50, 9)
     graph.add_edge(50, 0)
-    assert weighted_degree_2_rule(graph) == ({9}, {0, 50}), f"Should be {{9}} but is {weighted_degree_2_rule(graph)}"
+    nodes_weight_dict = dict(graph.nodes(data=True))
+    assert weighted_degree_2_rule(graph, nodes_weight_dict) == ({9}, {0, 50}), f"Should be {{9}} but is {weighted_degree_2_rule(graph)}"
 
 
 def test_reduce_graph() -> None:
@@ -70,7 +73,8 @@ def test_reduce_graph() -> None:
     graph.add_edge(26, 53)
     graph.add_edge(52, 53)
 
-    nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(graph)
+    nodes_weight_dict = dict(graph.nodes(data=True))
+    nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(graph, nodes_weight_dict)
     assert (nodes_to_remove, dominating_nodes) == ({0, 50, 51, 52, 53}, {9, 26, 54}), f"Result should be ({{0, 50, 51, 52, 53}}, {{9, 26, 54}}) but is {reduce_graph(graph)}"
 
 
@@ -101,10 +105,9 @@ def test_construct_dominating_set() -> None:
     graph.add_edge(26, 53)
     graph.add_edge(52, 53)
 
-    nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(graph)
-
     nodes_weight_dict = dict(graph.nodes(data=True))
-    dominating_set = construct_dominating_set(reduced_graph, dominating_nodes)
+    nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(graph, nodes_weight_dict)
+    dominating_set = construct_dominating_set(reduced_graph, dominating_nodes, nodes_weight_dict)
     assert nx.is_dominating_set(graph, dominating_set), f"Set {dominating_set} is not a dominating set"
 
 

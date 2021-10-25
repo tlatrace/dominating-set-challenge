@@ -178,7 +178,7 @@ def test_swap_dominating_set_nodes_if_necessary():
 # compute_graph_dominant_set_score(INPUT_DIR, GRAPH_FILENAME)
 # compute_graph_dominant_set_score(INPUT_DIR, "graph_500_1000")
 # compute_graph_dominant_set_score(INPUT_DIR, random.choice(GRAPH_FILENAMES_LIST))
-# compute_global_score(INPUT_DIR, GRAPH_FILENAMES_LIST)
+compute_global_score(INPUT_DIR, GRAPH_FILENAMES_LIST)
 # test_plot(INPUT_DIR, GRAPH_FILENAME)
 # test_plot_random_graph(INPUT_DIR, GRAPH_FILENAMES_LIST)
 # test_get_highest_weight_node(INPUT_DIR, GRAPH_FILENAME)
