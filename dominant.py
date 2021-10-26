@@ -111,6 +111,8 @@ def dominant(graph: nx.Graph) -> {int}:
     # dominating_set = set(d)
 
     start_time = time.time()
+    time_limit = 3.5
+    iterations_limit = 20
     nodes_weight_dict = get_nodes_weight_dict(graph=graph)
     nodes_neighbors_dict = get_nodes_neighbors_dict(graph=graph)
 
@@ -136,7 +138,7 @@ def dominant(graph: nx.Graph) -> {int}:
     iteration_counter = 1
 
     while (
-        time.time() - start_time < 1
+        time.time() - start_time < time_limit and iteration_counter < iterations_limit
     ):  # limit to 1s the computation of each graph dominating set
 
         # try again 2. construction and 3. shrinking in order to obtain a better score
@@ -907,7 +909,6 @@ def purify_nodes_set(
             # node_to_remove = get_highest_weight_node(graph, removable_nodes)
             node_to_remove = random.choice(list(removable_nodes))
             dominating_set = [node for node in dominating_set if node != node_to_remove]
-            print(f"{len(removable_nodes)} nodes removed.")
         else:
             check_dominating_set = False
     return dominating_set
