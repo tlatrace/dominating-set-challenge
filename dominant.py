@@ -3,11 +3,6 @@ import os
 import time
 import networkx as nx
 import random
-import math
-import multiprocessing as mp
-
-# from typing import Dict
-# import operator
 
 
 def timeit(method):
@@ -97,6 +92,24 @@ def dominant(graph: nx.Graph) -> {int}:
     :param graph: le graphe est donné dans le format networkx : https://networkx.github.io/documentation/stable/reference/classes/graph.html
 
     """
+
+    # L = list()
+    # with mp.Pool(processes=8) as pool:
+    #     L.append(pool.map(f, [graph]*4))
+    #
+    # dominating_sets = [i for i in L[0]]
+    #
+    # nodes_weight_dict = get_nodes_weight_dict(graph=graph)
+    # score = 1000000
+    # d = dominating_sets[0]
+    # for dominating_set in dominating_sets:
+    #     candidate_score = compute_graph_dominating_set_score(dominating_set=dominating_set, nodes_weight_dict=nodes_weight_dict)
+    #     if score > candidate_score:
+    #         score = candidate_score
+    #         d = dominating_set
+    #
+    # dominating_set = set(d)
+
     start_time = time.time()
     nodes_weight_dict = get_nodes_weight_dict(graph=graph)
     nodes_neighbors_dict = get_nodes_neighbors_dict(graph=graph)
@@ -113,7 +126,59 @@ def dominant(graph: nx.Graph) -> {int}:
         graph=graph,
         nodes_weight_dict=nodes_weight_dict,
         reduced_graph=reduced_graph,
-        dominating_nodes=dominating_nodes
+        dominating_nodes=dominating_nodes,
+        nodes_neighbors_dict=nodes_neighbors_dict,
+    )
+    score = compute_graph_dominating_set_score(
+        dominating_set=dominating_set, nodes_weight_dict=nodes_weight_dict
+    )
+
+    iteration_counter = 1
+
+    while (
+        time.time() - start_time < 1
+    ):  # limit to 1s the computation of each graph dominating set
+
+        # try again 2. construction and 3. shrinking in order to obtain a better score
+        dominating_set_candidate = compute_solution(
+            graph=graph,
+            nodes_weight_dict=nodes_weight_dict,
+            reduced_graph=reduced_graph,
+            dominating_nodes=dominating_nodes,
+            nodes_neighbors_dict=nodes_neighbors_dict,
+        )
+        candidate_score = compute_graph_dominating_set_score(
+            dominating_set=dominating_set_candidate, nodes_weight_dict=nodes_weight_dict
+        )
+
+        if candidate_score < score:
+            dominating_set = dominating_set_candidate
+            score = candidate_score
+
+        iteration_counter += 1
+
+    print(f"{iteration_counter} iterations have been made for this graph.")
+    return dominating_set
+
+
+def f(graph):
+    start_time = time.time()
+    nodes_weight_dict = get_nodes_weight_dict(graph=graph)
+    nodes_neighbors_dict = get_nodes_neighbors_dict(graph=graph)
+
+    # 1. reduction
+    nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(
+        graph=graph,
+        nodes_weight_dict=nodes_weight_dict,
+        nodes_neighbors_dict=nodes_neighbors_dict,
+    )
+
+    # 2. construction and 3. shrinking
+    dominating_set = compute_solution(
+        graph=graph,
+        nodes_weight_dict=nodes_weight_dict,
+        reduced_graph=reduced_graph,
+        dominating_nodes=dominating_nodes,
     )
     score = compute_graph_dominating_set_score(
         dominating_set=dominating_set, nodes_weight_dict=nodes_weight_dict
@@ -128,7 +193,8 @@ def dominant(graph: nx.Graph) -> {int}:
             graph=graph,
             nodes_weight_dict=nodes_weight_dict,
             reduced_graph=reduced_graph,
-            dominating_nodes=dominating_nodes
+            dominating_nodes=dominating_nodes,
+            nodes_neighbors_dict=nodes_neighbors_dict,
         )
         candidate_score = compute_graph_dominating_set_score(
             dominating_set=dominating_set_candidate, nodes_weight_dict=nodes_weight_dict
@@ -146,6 +212,7 @@ def compute_solution(
     nodes_weight_dict: {int: {str: int}},
     reduced_graph: nx.Graph,
     dominating_nodes: {int},
+    nodes_neighbors_dict: {int: {int}},
 ):
     # 2. construction
     dominating_set = construct_dominating_set(
@@ -155,8 +222,25 @@ def compute_solution(
     )
 
     # 3. shrinking
-    # TODO : implement shrinking of research article
-    dominating_set = purify_nodes_set(graph, dominating_set)
+
+    dominated_nodes = get_dominated_nodes(
+        graph=graph,
+        dominating_nodes=dominating_set,
+        nodes_neighbors_dict=nodes_neighbors_dict,
+    )
+    non_dominated_nodes = get_non_dominated_nodes(
+        graph=graph,
+        dominating_nodes=dominating_set,
+        nodes_neighbors_dict=nodes_neighbors_dict,
+    )
+    dominating_set = shrink_dominating_set(
+        graph=graph,
+        dominating_set=dominating_set,
+        nodes_weight_dict=nodes_weight_dict,
+        nodes_neighbors_dict=nodes_neighbors_dict,
+        dominated_nodes=dominated_nodes,
+        non_dominated_nodes=non_dominated_nodes,
+    )
 
     assert nx.is_dominating_set(
         graph, dominating_set
@@ -452,7 +536,6 @@ def get_node_total_neighbors_weight(
     return total_weight
 
 
-@timeit
 def reduce_graph(
     graph: nx.Graph,
     nodes_weight_dict: {int: {str: int}},
@@ -588,7 +671,6 @@ def get_frequency_score(
     return frequency_score
 
 
-@timeit
 def construct_dominating_set(
     reduced_graph: nx.Graph,
     dominating_nodes: {int},
@@ -681,7 +763,7 @@ def get_max_frequency_score_node(
     nodes_frequency_score_dict = get_nodes_frequency_score_dict(
         graph=graph,
         dominating_nodes=dominating_nodes,
-        random_non_dominated_node=random_non_dominated_node,
+        node=random_non_dominated_node,
         nodes_weight_dict=nodes_weight_dict,
         dominated_nodes=dominated_nodes,
         non_dominated_nodes=non_dominated_nodes,
@@ -696,7 +778,7 @@ def get_max_frequency_score_node(
 def get_nodes_frequency_score_dict(
     graph: nx.Graph,
     dominating_nodes: {int},
-    random_non_dominated_node: int,
+    node: int,
     nodes_weight_dict: {int: {str: int}},
     dominated_nodes: {int},
     non_dominated_nodes: {int},
@@ -712,9 +794,7 @@ def get_nodes_frequency_score_dict(
             nodes_weight_dict=nodes_weight_dict,
             nodes_neighbors_dict=nodes_neighbors_dict,
         )
-        for node in nodes_neighbors_dict[random_non_dominated_node].union(
-            {random_non_dominated_node}
-        )
+        for node in nodes_neighbors_dict[node].union({node})
     }
     return nodes_frequency_score_dict
 
@@ -734,19 +814,52 @@ def update_dominated_nodes(
     return non_dominated_nodes
 
 
-# def shrink_dominating_set(graph: nx.Graph, dominating_set: {int}) -> {int}:
-#     nodes_with_score_0 = set(
-#         [
-#             node
-#             for node in graph.nodes
-#             if get_frequency_score(graph, dominating_set, node)
-#         ]
-#     )
-#     while nodes_with_score_0:
-#         # to do : remove node by max weight order instead of taking the first one
-#         nodes_with_score_0[0]
-#     shrinked_dominating_set = dominating_set.copy()
-#     return shrinked_dominating_set
+def shrink_dominating_set(
+    graph: nx.Graph,
+    dominating_set: {int},
+    nodes_weight_dict: {int: {str: int}},
+    nodes_neighbors_dict: {int: {int}},
+    dominated_nodes: {int},
+    non_dominated_nodes: {int},
+) -> {int}:
+    shrinked_dominating_set = dominating_set.copy()
+
+    dominating_nodes_with_score_0 = {
+        node
+        for node in dominating_set
+        if get_frequency_score(
+            graph=graph,
+            dominating_nodes=dominating_set,
+            node=node,
+            dominated_nodes=dominated_nodes,
+            non_dominated_nodes=non_dominated_nodes,
+            nodes_weight_dict=nodes_weight_dict,
+            nodes_neighbors_dict=nodes_neighbors_dict,
+        )
+        == 0
+    }
+    while dominating_nodes_with_score_0:
+        node_to_remove = random.choice(list(dominating_nodes_with_score_0))
+        shrinked_dominating_set.remove(node_to_remove)
+        dominating_nodes_with_score_0.remove(node_to_remove)
+
+        # update score function of the neighbors and their neighbors
+        dominating_nodes_with_score_0 = {
+            node
+            for node in shrinked_dominating_set
+            if get_frequency_score(
+                graph=graph,
+                dominating_nodes=shrinked_dominating_set,
+                node=node,
+                dominated_nodes=dominated_nodes,
+                non_dominated_nodes=non_dominated_nodes,
+                nodes_weight_dict=nodes_weight_dict,
+                nodes_neighbors_dict=nodes_neighbors_dict,
+            )
+            == 0
+        }
+
+    return shrinked_dominating_set
 
 
 def is_node_dominated(
