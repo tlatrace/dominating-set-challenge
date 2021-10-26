@@ -90,7 +90,6 @@ def test_plot_random_graph(
     plot_graph_with_dominating_set(input_dir, graph_filename, dominating_set)
 
 
-@timeit
 def compute_graph_dominant_set_score(
         input_dir: Path,
         graph_filename: str,

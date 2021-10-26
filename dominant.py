@@ -63,14 +63,14 @@ def timeit(method):
 #         counter < len(list(graph.nodes))
 #     ):
 #         next_node = sorted_nodes_list[counter]
-#         # todo : reformat to minimize the cost function : don't compute before the sorted_nodes_list
+#         #  reformat to minimize the cost function : don't compute before the sorted_nodes_list
 #         #  but compute it on the fly (like this we can compute with dominating_set length also)
 #         if not is_node_dominated(next_node, graph, dominating_set):
 #             dominating_set.append(next_node)
 #
 #         counter += 1
 #
-#     # todo : swap nodes if necessary
+#     #  swap nodes if necessary
 #     #  implement a dict with number of dominating vertices that dominate a given non-dominant vertex
 #
 #     # swap nodes from dominating set if necessary
@@ -88,7 +88,7 @@ def timeit(method):
 
 
 @timeit
-def dominant(graph) -> {int}:
+def dominant(graph: nx.Graph) -> {int}:
     """
     A Faire:
     - Ecrire une fonction qui retourne le dominant du graphe non dirigé g passé en parametre.
@@ -97,11 +97,32 @@ def dominant(graph) -> {int}:
     :param graph: le graphe est donné dans le format networkx : https://networkx.github.io/documentation/stable/reference/classes/graph.html
 
     """
+    start_time = time.time()
     nodes_weight_dict = get_nodes_weight_dict(graph=graph)
+
+    dominating_set = compute_solution(graph=graph, nodes_weight_dict=nodes_weight_dict)
+    score = compute_graph_dominating_set_score(dominating_set=dominating_set, nodes_weight_dict=nodes_weight_dict)
+
+    # todo : optimize the 2 and 3 steps only
+    # todo : don't hardcode 1
+    while time.time() - start_time < 1:  # limit to 1s the computation of each graph dominating set
+        dominating_set_candidate = compute_solution(graph=graph, nodes_weight_dict=nodes_weight_dict)
+        candidate_score = compute_graph_dominating_set_score(dominating_set=dominating_set_candidate, nodes_weight_dict=nodes_weight_dict)
+        if candidate_score < score:
+            dominating_set = dominating_set_candidate
+            score = candidate_score
+
+    return dominating_set
+
+
+def compute_solution(graph: nx.Graph, nodes_weight_dict: {int: {str: int}}):
+    nodes_neighbors_dict = get_nodes_neighbors_dict(graph=graph)
 
     # 1. reduction
     nodes_to_remove, dominating_nodes, reduced_graph = reduce_graph(
-        graph=graph, nodes_weight_dict=nodes_weight_dict
+        graph=graph,
+        nodes_weight_dict=nodes_weight_dict,
+        nodes_neighbors_dict=nodes_neighbors_dict,
     )
 
     # 2. construction
@@ -121,6 +142,20 @@ def dominant(graph) -> {int}:
 
     return dominating_set
 
+
+def compute_graph_dominating_set_score(
+        dominating_set: {int},
+        nodes_weight_dict: {int: {str: int}}
+) -> int:
+    # todo : optimize this
+    score = sum(
+        [
+            weight_dict["weight"]
+            for node_number, weight_dict in nodes_weight_dict.items()
+            if node_number in dominating_set
+        ]
+    )
+    return score
 
 # @timeit
 # def get_full_node_dict(graph: nx.Graph) -> Dict[int, Dict]:
@@ -256,6 +291,8 @@ def dominant(graph) -> {int}:
 #     return [edge[1] for edge in list(graph.edges(node_number))]
 
 
+
+# todo : delete
 def get_node_neighbors(
     graph: nx.Graph,
     node: int,
@@ -263,6 +300,15 @@ def get_node_neighbors(
     return set([edge[1] for edge in list(graph.edges(node))])
 
 
+def get_nodes_neighbors_dict(
+    graph: nx.Graph,
+) -> {int: set}:
+    return {
+        node: set([edge[1] for edge in list(graph.edges(node))]) for node in graph.nodes
+    }
+
+
+# todo : delete
 def get_node_degree(
     graph: nx.Graph,
     node_number: int,
@@ -271,14 +317,7 @@ def get_node_degree(
     return len(node_neighbors)
 
 
-# todo : optimize it by sending back the dictionary and calling direclty on it
-def get_node_weight(
-    graph: nx.Graph,
-    node_number: int,
-) -> int:
-    return dict(graph.nodes(data=True))[node_number]["weight"]
-
-
+# todo : reformat this to get rid of the "weight"
 def get_nodes_weight_dict(
     graph: nx.Graph,
 ) -> {int: {str: int}}:
@@ -286,27 +325,28 @@ def get_nodes_weight_dict(
 
 
 def weighted_degree_0_rule(
-    graph: nx.Graph,
+    graph: nx.Graph, nodes_neighbors_dict: {int: {int}}
 ) -> {int}:
     dominating_nodes = set()
     for node in graph.nodes:
-        if len(get_node_neighbors(graph=graph, node=node)) == 0:  # node of degree 0
+        if len(nodes_neighbors_dict[node]) == 0:  # node of degree 0
             dominating_nodes.add(node)
     return dominating_nodes
 
 
 def weighted_degree_1_rule_1(
-    graph: nx.Graph, nodes_weight_dict: {int: {str: int}}
+    graph: nx.Graph,
+    nodes_weight_dict: {int: {str: int}},
+    nodes_neighbors_dict: {int: {int}},
 ) -> ({int}, {int}):
     dominating_nodes = set()
     nodes_to_remove = set()
     for node in graph.nodes:
-        node_neighbors = get_node_neighbors(graph=graph, node=node)
+        node_neighbors = nodes_neighbors_dict[node]
         node_neighbors_of_degree_1 = [
             node_neighbor
             for node_neighbor in node_neighbors
-            if len(get_node_neighbors(graph=graph, node=node_neighbor))
-            == 1  # node of degree 1
+            if len(nodes_neighbors_dict[node_neighbor]) == 1  # node of degree 1
         ]
         if len(node_neighbors_of_degree_1) == 1:  # check if has a neighbor
             node_neighbor = node_neighbors_of_degree_1[0]
@@ -321,8 +361,7 @@ def weighted_degree_1_rule_1(
 
 
 def get_neighbors_weight_sum(
-    nodes_list: [int],
-    nodes_weight_dict: {int: {str: int}}
+    nodes_list: [int], nodes_weight_dict: {int: {str: int}}
 ) -> int:
     neighbors_weight_sum = 0
     for node_neighbor in nodes_list:
@@ -333,20 +372,21 @@ def get_neighbors_weight_sum(
 def weighted_degree_1_rule_2(
     graph: nx.Graph,
     nodes_weight_dict: {int: {str: int}},
+    nodes_neighbors_dict: {int: {int}},
 ) -> ({int}, {int}):
     dominating_nodes = set()
     nodes_to_remove = set()
     for node in graph.nodes:
-        node_neighbors = get_node_neighbors(graph=graph, node=node)
+        node_neighbors = nodes_neighbors_dict[node]
         node_neighbors_of_degree_1 = [
             node_neighbor
             for node_neighbor in node_neighbors
-            if len(get_node_neighbors(graph=graph, node=node_neighbor))
-            == 1  # node of degree 1
+            if len(nodes_neighbors_dict[node_neighbor]) == 1  # node of degree 1
         ]
         if node_neighbors_of_degree_1:  # check if some neighbor have degree 1
             neighbors_weight_sum = get_neighbors_weight_sum(
-                nodes_list=node_neighbors_of_degree_1, nodes_weight_dict=nodes_weight_dict
+                nodes_list=node_neighbors_of_degree_1,
+                nodes_weight_dict=nodes_weight_dict,
             )
             if neighbors_weight_sum > nodes_weight_dict[node]["weight"]:
                 dominating_nodes.add(node)
@@ -358,17 +398,23 @@ def weighted_degree_1_rule_2(
 def weighted_degree_2_rule(
     graph: nx.Graph,
     nodes_weight_dict: {int: {str: int}},
+    nodes_neighbors_dict: {int: {int}},
 ) -> ({int}, {int}):
     dominating_nodes = set()
     nodes_to_remove = set()
     for node in graph.nodes:
-        if len(get_node_neighbors(graph, node)) == 2:  # node of degree 2
-            node_neighbors = get_node_neighbors(graph=graph, node=node)
+        if len(nodes_neighbors_dict[node]) == 2:  # node of degree 2
+            node_neighbors = nodes_neighbors_dict[node]
             for node_neighbor in node_neighbors:
-                if len(get_node_neighbors(graph=graph, node=node_neighbor)) == 2:
+                if len(nodes_neighbors_dict[node_neighbor]) == 2:
                     second_neighbor = next(iter(node_neighbors - {node_neighbor}))
-                    if second_neighbor in get_node_neighbors(graph=graph, node=node_neighbor):
-                        if nodes_weight_dict[node_neighbor]["weight"] > nodes_weight_dict[second_neighbor]["weight"] and nodes_weight_dict[node]["weight"] > nodes_weight_dict[second_neighbor]["weight"]:
+                    if second_neighbor in nodes_neighbors_dict[node_neighbor]:
+                        if (
+                            nodes_weight_dict[node_neighbor]["weight"]
+                            > nodes_weight_dict[second_neighbor]["weight"]
+                            and nodes_weight_dict[node]["weight"]
+                            > nodes_weight_dict[second_neighbor]["weight"]
+                        ):
                             dominating_nodes.add(second_neighbor)
                             nodes_to_remove.add(node_neighbor)
                             nodes_to_remove.add(node)
@@ -389,23 +435,31 @@ def get_node_total_neighbors_weight(
 
 @timeit
 def reduce_graph(
-    graph: nx.Graph, nodes_weight_dict: {int: {str: int}}
+    graph: nx.Graph,
+    nodes_weight_dict: {int: {str: int}},
+    nodes_neighbors_dict: {int: {int}},
 ) -> ({int}, {int}):
     graph_copy = graph.copy()
+    nodes_neighbors_dict_copy = nodes_neighbors_dict.copy()
     nodes_to_remove_set = set()
     dominating_nodes_set = set()
     rule_0_bool, rule_11_bool, rule_12_bool, rule_2_bool = True, True, True, True
     while rule_0_bool:
-        dominating_nodes = weighted_degree_0_rule(graph=graph_copy)
+        dominating_nodes = weighted_degree_0_rule(
+            graph=graph_copy, nodes_neighbors_dict=nodes_neighbors_dict_copy
+        )
         if dominating_nodes != set():
             for node in dominating_nodes:
                 dominating_nodes_set.add(node)
                 graph_copy.remove_node(node)
+            nodes_neighbors_dict_copy = get_nodes_neighbors_dict(graph=graph_copy)
         else:
             rule_0_bool = False
     while rule_11_bool:
         dominating_nodes, nodes_to_remove = weighted_degree_1_rule_1(
-            graph=graph_copy, nodes_weight_dict=nodes_weight_dict
+            graph=graph_copy,
+            nodes_weight_dict=nodes_weight_dict,
+            nodes_neighbors_dict=nodes_neighbors_dict_copy,
         )
         if dominating_nodes != set():
             for node in dominating_nodes:
@@ -413,26 +467,37 @@ def reduce_graph(
             for node_to_remove in nodes_to_remove:
                 nodes_to_remove_set.add(node_to_remove)
                 graph_copy.remove_node(node_to_remove)
+            nodes_neighbors_dict_copy = get_nodes_neighbors_dict(graph=graph_copy)
         else:
             rule_11_bool = False
     while rule_12_bool:
-        dominating_nodes, nodes_to_remove = weighted_degree_1_rule_2(graph=graph_copy, nodes_weight_dict=nodes_weight_dict)
+        dominating_nodes, nodes_to_remove = weighted_degree_1_rule_2(
+            graph=graph_copy,
+            nodes_weight_dict=nodes_weight_dict,
+            nodes_neighbors_dict=nodes_neighbors_dict_copy,
+        )
         if dominating_nodes != set():
             for node in dominating_nodes:
                 dominating_nodes_set.add(node)
             for node_to_remove in nodes_to_remove:
                 nodes_to_remove_set.add(node_to_remove)
                 graph_copy.remove_node(node_to_remove)
+            nodes_neighbors_dict_copy = get_nodes_neighbors_dict(graph=graph_copy)
         else:
             rule_12_bool = False
     while rule_2_bool:
-        dominating_nodes, nodes_to_remove = weighted_degree_2_rule(graph=graph_copy, nodes_weight_dict=nodes_weight_dict)
+        dominating_nodes, nodes_to_remove = weighted_degree_2_rule(
+            graph=graph_copy,
+            nodes_weight_dict=nodes_weight_dict,
+            nodes_neighbors_dict=nodes_neighbors_dict_copy,
+        )
         if dominating_nodes != set():
             for node in dominating_nodes:
                 dominating_nodes_set.add(node)
             for node_to_remove in nodes_to_remove:
                 nodes_to_remove_set.add(node_to_remove)
                 graph_copy.remove_node(node_to_remove)
+            nodes_neighbors_dict_copy = get_nodes_neighbors_dict(graph=graph_copy)
         else:
             rule_2_bool = False
 
@@ -455,6 +520,7 @@ def get_frequency_score(
     dominated_nodes: {int},
     non_dominated_nodes: {int},
     nodes_weight_dict: {int: {str: int}},
+    nodes_neighbors_dict: {int: {int}},
 ) -> int:
     frequency_score = 0
     if node in dominating_nodes:
@@ -467,8 +533,8 @@ def get_frequency_score(
         for dominated_node in dominated_nodes:
             if not is_node_dominated(
                 node=dominated_node,
-                graph=graph,
                 dominating_nodes=dominating_nodes_reduced,
+                nodes_neighbors_dict=nodes_neighbors_dict,
             ):
                 c1_nodes.add(dominated_node)
 
@@ -488,8 +554,8 @@ def get_frequency_score(
         for non_dominated_node in non_dominated_nodes:
             if is_node_dominated(
                 node=non_dominated_node,
-                graph=graph,
                 dominating_nodes=dominating_nodes_increased,
+                nodes_neighbors_dict=nodes_neighbors_dict,
             ):
                 c2_nodes.add(non_dominated_node)
 
@@ -510,8 +576,11 @@ def construct_dominating_set(
     nodes_weight_dict: {int: {str: int}},
 ) -> {int}:
     # initializing non dominated nodes set
+    nodes_neighbors_dict = get_nodes_neighbors_dict(reduced_graph)
     non_dominated_nodes = get_non_dominated_nodes(
-        graph=reduced_graph, dominating_nodes=dominating_nodes
+        graph=reduced_graph,
+        dominating_nodes=dominating_nodes,
+        nodes_neighbors_dict=nodes_neighbors_dict,
     )
 
     # add dominating nodes iteratively
@@ -521,7 +590,9 @@ def construct_dominating_set(
 
         # adding node in the neighborhood of random_non_dominated_node with the maximum frequency score
         dominated_nodes = get_dominated_nodes(
-            graph=reduced_graph, dominating_nodes=dominating_nodes
+            graph=reduced_graph,
+            dominating_nodes=dominating_nodes,
+            nodes_neighbors_dict=nodes_neighbors_dict,
         )
         max_frequency_score_node = get_max_frequency_score_node(
             graph=reduced_graph,
@@ -530,23 +601,29 @@ def construct_dominating_set(
             nodes_weight_dict=nodes_weight_dict,
             dominated_nodes=dominated_nodes,
             non_dominated_nodes=non_dominated_nodes,
+            nodes_neighbors_dict=nodes_neighbors_dict,
         )
         dominating_nodes.add(max_frequency_score_node)
 
         # update non_dominated_nodes
         non_dominated_nodes = update_dominated_nodes(
-            reduced_graph, non_dominated_nodes, max_frequency_score_node
+            non_dominated_nodes=non_dominated_nodes,
+            max_frequency_score_node=max_frequency_score_node,
+            nodes_neighbors_dict=nodes_neighbors_dict,
         )
     return dominating_nodes
 
 
 def get_dominated_nodes(
-    graph: nx.Graph,
-    dominating_nodes: {int},
+    graph: nx.Graph, dominating_nodes: {int}, nodes_neighbors_dict: {int: {int}}
 ) -> {int}:
     dominated_nodes = set()
     for node in graph.nodes:
-        if is_node_dominated(node=node, graph=graph, dominating_nodes=dominating_nodes):
+        if is_node_dominated(
+            node=node,
+            dominating_nodes=dominating_nodes,
+            nodes_neighbors_dict=nodes_neighbors_dict,
+        ):
             dominated_nodes.add(node)
     return dominated_nodes
 
@@ -554,11 +631,14 @@ def get_dominated_nodes(
 def get_non_dominated_nodes(
     graph: nx.Graph,
     dominating_nodes: {int},
+    nodes_neighbors_dict: {int: {int}},
 ) -> {int}:
     non_dominated_nodes = set()
     for node in graph.nodes:
         if not is_node_dominated(
-            node=node, graph=graph, dominating_nodes=dominating_nodes
+            node=node,
+            dominating_nodes=dominating_nodes,
+            nodes_neighbors_dict=nodes_neighbors_dict,
         ):
             non_dominated_nodes.add(node)
     return non_dominated_nodes
@@ -571,6 +651,7 @@ def get_max_frequency_score_node(
     nodes_weight_dict: {int: {str: int}},
     dominated_nodes: {int},
     non_dominated_nodes: {int},
+    nodes_neighbors_dict: {int: {int}},
 ) -> int:
     """
     Return the node in the neighborhood of random_non_dominated_node with the maximum frequency score
@@ -583,6 +664,7 @@ def get_max_frequency_score_node(
         nodes_weight_dict=nodes_weight_dict,
         dominated_nodes=dominated_nodes,
         non_dominated_nodes=non_dominated_nodes,
+        nodes_neighbors_dict=nodes_neighbors_dict,
     )
     max_frequency_score_node = max(
         nodes_frequency_score_dict.keys(), key=lambda k: nodes_frequency_score_dict[k]
@@ -597,6 +679,7 @@ def get_nodes_frequency_score_dict(
     nodes_weight_dict: {int: {str: int}},
     dominated_nodes: {int},
     non_dominated_nodes: {int},
+    nodes_neighbors_dict: {int: {int}},
 ):
     nodes_frequency_score_dict = {
         node: get_frequency_score(
@@ -606,25 +689,25 @@ def get_nodes_frequency_score_dict(
             dominated_nodes=dominated_nodes,
             non_dominated_nodes=non_dominated_nodes,
             nodes_weight_dict=nodes_weight_dict,
+            nodes_neighbors_dict=nodes_neighbors_dict,
         )
-        for node in get_node_neighbors(
-            graph=graph, node=random_non_dominated_node
-        ).union({random_non_dominated_node})
+        for node in nodes_neighbors_dict[random_non_dominated_node].union(
+            {random_non_dominated_node}
+        )
     }
     return nodes_frequency_score_dict
 
 
 def update_dominated_nodes(
-    graph: nx.Graph,
     non_dominated_nodes: {int},
     max_frequency_score_node: int,
+    nodes_neighbors_dict: {int: {int}},
 ) -> {int}:
     non_dominated_nodes = non_dominated_nodes.copy()
     if max_frequency_score_node in non_dominated_nodes:
         non_dominated_nodes.remove(max_frequency_score_node)
-    for max_frequency_score_node_neighbor in get_node_neighbors(
-        graph, max_frequency_score_node
-    ):
+    max_frequency_score_node_neighbors = nodes_neighbors_dict[max_frequency_score_node]
+    for max_frequency_score_node_neighbor in max_frequency_score_node_neighbors:
         if max_frequency_score_node_neighbor in non_dominated_nodes:
             non_dominated_nodes.remove(max_frequency_score_node_neighbor)
     return non_dominated_nodes
@@ -645,16 +728,15 @@ def update_dominated_nodes(
 #     return shrinked_dominating_set
 
 
+# todo : reformat this
 def is_node_dominated(
-    node: int,
-    graph: nx.Graph,
-    dominating_nodes: {int},
+    node: int, dominating_nodes: {int}, nodes_neighbors_dict: {int: {int}}
 ) -> bool:
     is_linked = False
     if node in dominating_nodes:
         is_linked = True
     else:
-        node_neighbors = get_node_neighbors(graph, node)
+        node_neighbors = nodes_neighbors_dict[node]
         for node_neighbor in node_neighbors:
             if node_neighbor in dominating_nodes:
                 is_linked = True
@@ -675,7 +757,6 @@ def get_highest_weight_node(graph: nx.Graph, nodes_list: {int}) -> int:
 
 
 # todo : test this
-@timeit
 def purify_nodes_set(
     graph: nx.Graph,
     dominating_set: [int],
@@ -743,7 +824,6 @@ def purify_nodes_set(
 #     return dominating_set, dominating_nodes_number
 
 
-# # todo : case where n_neighbors > 2
 # def swap_nodes_if_necesseary(
 #     dominating_set: [int],
 #     full_node_dict: dict,
@@ -776,7 +856,6 @@ def purify_nodes_set(
 #     return dominating_set, dominating_nodes_number
 
 
-# # todo : fix this
 # @timeit
 # def swap_dominating_set_nodes_if_necessary(
 #     full_node_dict: dict,
