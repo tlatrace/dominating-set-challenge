@@ -1,8 +1,4 @@
 import networkx as nx
-from pathlib import Path
-import random
-import math
-from matplotlib import pyplot as plt
 
 
 def get_nodes_weight_dict(
