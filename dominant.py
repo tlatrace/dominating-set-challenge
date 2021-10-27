@@ -841,7 +841,11 @@ def shrink_dominating_set(
         == 0
     }
     while dominating_nodes_with_score_0:
-        node_to_remove = random.choice(list(dominating_nodes_with_score_0))
+        dominating_nodes_weight_dict = {node: nodes_weight_dict[node]["weight"] for node in dominating_nodes_with_score_0}
+        node_to_remove = max(
+            dominating_nodes_weight_dict.keys(), key=lambda k: dominating_nodes_weight_dict[k]
+        )
+
         shrinked_dominating_set.remove(node_to_remove)
         dominating_nodes_with_score_0.remove(node_to_remove)
 
