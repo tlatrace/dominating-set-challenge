@@ -1,6 +1,10 @@
 # Paper
 
-This Python repository aims to implement a Fast Local Search Algorithm for Minimum Weight Dominating Set Problem on Massive Graphs, defined in this [paper](https://www.ijcai.org/proceedings/2018/0210.pdf) written by Yiyuan Wang, Shaowei Cai, Jiejiang Chen & Minghao Yin1.
+This Python repository aims to implement a **Fast Local Search Algorithm for Minimum Weight Dominating Set Problem on Massive Graphs**, defined in this [paper](https://www.ijcai.org/proceedings/2018/0210.pdf) written by Yiyuan Wang, Shaowei Cai, Jiejiang Chen & Minghao Yin1.
+
+Only the dominating set constructing procedure was implemented.
+
+To know more about the dominating set problem, you can check this [Wikipedia link](https://en.wikipedia.org/wiki/Dominating_set).
 
 # Instructions (in french)
 
